@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Icons</title>
+<style>
+body{font-family:sans-serif;padding:16px;text-align:center}
+button{font-size:18px;padding:12px;margin:6px 0;width:100%}
+canvas{width:128px;height:128px;margin:12px 0}
+</style>
+<button onclick="dl(192)">Скачать icon-192.png</button>
+<button onclick="dl(512)">Скачать icon-512.png</button>
+<script>
+function mk(n){
+ const c=document.createElement("canvas");c.width=c.height=n;
+ const x=c.getContext("2d");
+ x.fillStyle="#333";x.beginPath();x.arc(n/2,n/2,n*0.48,0,7);x.fill();
+ x.fillStyle="#fff";x.font="bold "+n*0.6+"px sans-serif";
+ x.textAlign="center";x.textBaseline="middle";
+ x.fillText("£",n/2,n/2+n*0.03);
+ return c;}
+function dl(n){mk(n).toBlob(b=>{
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(b);a.download="icon-"+n+".png";a.click();});}
+document.body.appendChild(mk(192));
+</script>
