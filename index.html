@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#121212">
 <title>Budget</title>
 <style>
-:root{color-scheme:dark;--bg:#121212;--card:#1c1c1e;--line:#2e2e32;--tx:#ececec;--mut:#9a9aa0;--acc:#4da3ff}
+:root{color-scheme:dark;--bg:#121212;--card:#1c1c1e;--line:#2e2e32;--tx:#ececec;--mut:#9a9aa0;--acc:#4da3ff;--g:#5fd68a}
 *{box-sizing:border-box}
 body{margin:0;font-family:sans-serif;font-size:16px;background:var(--bg);color:var(--tx)}
 #top{display:flex;gap:6px;padding:6px;height:56px;align-items:center;background:var(--card);border-bottom:1px solid var(--line)}
@@ -21,24 +21,33 @@ input,button{font-size:18px;padding:10px;margin:3px 0;width:100%;background:var(
 .cats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .cats button{width:auto}
 .cats .on{background:var(--acc);color:#0a0a0a;border-color:var(--acc)}
+.cats .incb{grid-column:1/-1;border-color:#2f7a4a;color:var(--g)}
+.cats .incb.on{background:var(--g);color:#0a0a0a;border-color:var(--g)}
+.addinc{background:var(--g);color:#0a0a0a;border-color:var(--g)}
 .nav{display:grid;grid-template-columns:60px 1fr 60px;align-items:center;text-align:center;gap:6px;font-size:18px}
 .nav button{width:auto}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.tiles .tile:last-child:nth-child(odd){grid-column:1/-1}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tile.inc{border-color:#2f7a4a;background:#13241a}
 .tile small{color:var(--mut);display:block}
 .tile b{font-size:28px;display:block;margin-top:2px}
-.pos{color:#5fd68a}.neg{color:#ff6b6b}
+.pos{color:var(--g)}.neg{color:#ff6b6b}
 table{border-collapse:collapse;width:100%;font-size:14px;table-layout:fixed;margin:8px 0}
 td,th{padding:7px 3px;text-align:right;border:1px solid var(--line);overflow:hidden}
 th{background:var(--card);color:var(--mut);font-weight:normal}
+th.inc{color:var(--g)}
+td.inc{background:#13241a;color:var(--g)}
 td:first-child,th:first-child{text-align:left;width:64px}
 .ds{text-align:left;font-size:12px;white-space:nowrap;text-overflow:ellipsis}
 .sum td{font-size:17px;font-weight:bold;background:var(--card);border-top:2px solid #666}
+.sum td.inc{background:#13241a}
 .td td{background:#2a2a14}
 ul{padding:0;list-style:none}
-li{display:flex;justify-content:space-between;padding:10px 4px;border:1px solid var(--line);border-radius:8px;margin:4px 0;background:var(--card)}
+li{display:flex;justify-content:space-between;padding:10px 8px;border:1px solid var(--line);border-radius:8px;margin:4px 0;background:var(--card)}
+li.li-inc{border-left:4px solid var(--g)}
 #ov{position:fixed;inset:0;background:var(--bg);overflow:auto;z-index:9;padding:10px 12px}
-.leg span{display:inline-block;margin-right:12px;font-size:13px;color:var(--mut)}
+.leg span{display:inline-block;margin:2px 12px 2px 0;font-size:13px;color:var(--mut)}
 .leg i{display:inline-block;width:10px;height:10px;margin-right:4px}
 svg text{fill:#bbb}
 h4{margin:14px 0 4px;color:var(--mut);font-weight:normal}
@@ -58,7 +67,7 @@ h4{margin:14px 0 4px;color:var(--mut);font-weight:normal}
   <input id="amt" type="number" step="0.01" inputmode="decimal" placeholder="Сумма">
   <div class="cats" id="cats"></div>
   <input id="dsc" placeholder="Описание">
-  <button onclick="add()">Добавить</button>
+  <button id="addb" onclick="add()">Добавить расход</button>
   <div id="info"></div>
   <ul id="list"></ul>
   <button onclick="exp()">Резервная копия (JSON)</button>
@@ -78,7 +87,9 @@ const $=id=>document.getElementById(id),pad=n=>String(n).padStart(2,"0");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fv=v=>v?+v.toFixed(2)+"":"",f2=v=>v.toFixed(2);
 const sg=v=>v>=0?"pos":"neg";
-const tile=(l,v,cls="")=>`<div class="tile"><small>${l}</small><b class="${cls}">${v}</b></div>`;
+const tile=(l,v,cls="",box="")=>`<div class="tile ${box}"><small>${l}</small><b class="${cls}">${v}</b></div>`;
+const ths=SH.map((c,i)=>`<th${i?"":' class="inc"'}>${c}</th>`).join("");
+const tds=(s,r)=>C.map(c=>`<td${c=="Income"?' class="inc"':""}>${r?(Math.round(s[c])||""):fv(s[c])}</td>`).join("");
 const iso=t=>new Date(t).toISOString().slice(0,10);
 const addD=(s,n)=>iso(Date.parse(s)+n*864e5);
 const dow=s=>(new Date(s).getUTCDay()+6)%7;
@@ -115,18 +126,23 @@ function del(id){if(confirm("Удалить?")){d.tx=d.tx.filter(x=>String(x.id)
 function pick(date){$("dt").value=date;drawAdd();go(0);}
 
 function drawAdd(){
- C.forEach(c=>$("b"+c).className=c==cat?"on":"");
+ C.forEach(c=>$("b"+c).className=(c=="Income"?"incb ":"")+(c==cat?"on":""));
+ const inc=cat=="Income";
+ $("addb").textContent=inc?"Добавить доход":"Добавить расход";
+ $("addb").className=inc?"addinc":"";
+ $("amt").style.borderColor=$("dsc").style.borderColor=inc?"#5fd68a":"";
  const dt=$("dt").value;if(!dt)return;
- const b=bal(dt.slice(0,7));
- $("info").innerHTML=`<div class="tiles">${tile("Расход за день",f2(spent(dayTot(dt))))}${tile("Баланс месяца",f2(b),sg(b))}</div>`;
- $("list").innerHTML=(I[dt]||[]).map(x=>`<li onclick="del('${x.id}')"><span>${x.c} ${esc(x.s)}</span><b>${x.a}</b></li>`).join("");}
+ const m=dt.slice(0,7),b=bal(m),ds=dayTot(dt);
+ $("info").innerHTML=`<div class="tiles">${tile("Расход за день",f2(spent(ds)))}${tile("Доход за день",f2(ds.Income),"pos","inc")}${tile("Баланс месяца",f2(b),sg(b))}${tile("Доход за месяц",f2(mTot(m).Income),"pos","inc")}</div>`;
+ $("list").innerHTML=(I[dt]||[]).map(x=>{const i=x.c=="Income";
+  return `<li class="${i?"li-inc":""}" onclick="del('${x.id}')"><span>${x.c} ${esc(x.s)}</span><b class="${i?"pos":""}">${i?"+":""}${x.a}</b></li>`;}).join("");}
 
 function drawWeek(){
  const days=[...Array(7)].map((_,i)=>addD(wk,i)),tot=zero();
  let rows="";
  days.forEach((x,i)=>{const s=dayTot(x);C.forEach(c=>tot[c]+=s[c]);
   const ds=(I[x]||[]).map(t=>t.s).filter(Boolean).join(", ");
-  rows+=`<tr onclick="pick('${x}')" class="${x==today()?"td":""}"><td>${DN[i]} ${x.slice(8)}</td>${C.map(c=>`<td>${fv(s[c])}</td>`).join("")}<td class="ds">${esc(ds)}</td></tr>`;});
+  rows+=`<tr onclick="pick('${x}')" class="${x==today()?"td":""}"><td>${DN[i]} ${x.slice(8)}</td>${tds(s)}<td class="ds">${esc(ds)}</td></tr>`;});
  const sp=spent(tot),ws=C.slice(1).map(c=>sp?tot[c]/sp:0),av=avgShare();
  let g=`<svg viewBox="0 0 560 160" width="100%">`;
  C.slice(1).forEach((c,j)=>{const y=j*30+6,w=ws[j]*400;
@@ -135,44 +151,51 @@ function drawWeek(){
   g+=`<text x="458" y="${y+15}" font-size="13">${Math.round(ws[j]*100)}%${av?" / "+Math.round(av[j]*100)+"%":""}</text>`;});
  g+="</svg>";
  $("p1").innerHTML=`<div class="nav"><button onclick="wk=addD(wk,-7);draw()">◀</button><b>${sh(days[0])} – ${sh(days[6])}</b><button onclick="wk=addD(wk,7);draw()">▶</button></div>
- <div class="tiles">${tile("Расход за неделю",f2(sp))}${tile("Доход за неделю",f2(tot.Income),"pos")}</div>
- <table><tr><th>День</th>${SH.map(c=>`<th>${c}</th>`).join("")}<th style="width:26%">Описание</th></tr>${rows}
- <tr class="sum"><td>Итого</td>${C.map(c=>`<td>${fv(tot[c])}</td>`).join("")}<td></td></tr></table>
+ <div class="tiles">${tile("Расход за неделю",f2(sp))}${tile("Доход за неделю",f2(tot.Income),"pos","inc")}</div>
+ <table><tr><th>День</th>${ths}<th style="width:26%">Описание</th></tr>${rows}
+ <tr class="sum"><td>Итого</td>${tds(tot)}<td></td></tr></table>
  <h4>Доли расходов: неделя (полоса) / среднее по прошлым неделям (белая метка)</h4>
  <div class="gr">${g}</div>
  ${av?"":"<p><small>Среднее появится после первой завершённой недели.</small></p>"}`;}
 
 function monthGraph(n){
  const cu=today(),cm=cu.slice(0,7),last=mo==cm?+cu.slice(8):(mo<cm?n:0);
- const cum=[];let r=0;for(let i=1;i<=last;i++){r+=spent(dayTot(mo+"-"+pad(i)));cum.push(r);}
- const pt=spent(mTot(shM(mo,-1))),cv=cum.length?cum[cum.length-1]:0;
- const mx=Math.max(pt,cv,1)*1.08,L=48,R=10,T=14,B=24,W=560,H=220,pw=W-L-R,ph=H-T-B;
+ const cs=[],ci=[];let r=0,q=0;
+ for(let i=1;i<=last;i++){const s=dayTot(mo+"-"+pad(i));r+=spent(s);q+=s.Income;cs.push(r);ci.push(q);}
+ const pmt=mTot(shM(mo,-1)),pt=spent(pmt),pi=pmt.Income;
+ const cv=cs.length?cs[cs.length-1]:0,cI=ci.length?ci[ci.length-1]:0;
+ const mx=Math.max(pt,pi,cv,cI,1)*1.08,L=48,R=10,T=14,B=24,W=560,H=220,pw=W-L-R,ph=H-T-B;
  const X=i=>L+(i-1)/(n-1)*pw,Yv=v=>T+(1-v/mx)*ph;
+ const lab=(x,v,col,up)=>`<text x="${x}" y="${up?Yv(v)-6:Yv(v)+15}" font-size="12" text-anchor="end" style="fill:${col}">${Math.round(v)}</text>`;
+ const hl=(v,col)=>`<line x1="${L}" x2="${W-R}" y1="${Yv(v)}" y2="${Yv(v)}" stroke="${col}" stroke-width="2"/>`;
+ const pl=(a,col)=>`<polyline points="${a.map((v,i)=>X(i+1)+","+Yv(v)).join(" ")}" fill="none" stroke="${col}" stroke-width="2.5"/>`;
  let g=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
  [0,.5,1].forEach(k=>{const v=mx*k;g+=`<line x1="${L}" x2="${W-R}" y1="${Yv(v)}" y2="${Yv(v)}" stroke="#2e2e32"/><text x="${L-6}" y="${Yv(v)+4}" font-size="11" text-anchor="end">${Math.round(v)}</text>`;});
  [1,8,15,22,n].forEach(i=>g+=`<text x="${X(i)}" y="${H-6}" font-size="11" text-anchor="middle">${i}</text>`);
- if(pt)g+=`<line x1="${L}" x2="${W-R}" y1="${Yv(pt)}" y2="${Yv(pt)}" stroke="#f5c542" stroke-width="2"/><text x="${W-R}" y="${Yv(pt)-5}" font-size="12" text-anchor="end" style="fill:#f5c542">${Math.round(pt)}</text>`;
- if(cum.length)g+=`<polyline points="${cum.map((v,i)=>X(i+1)+","+Yv(v)).join(" ")}" fill="none" stroke="#ff4d4d" stroke-width="2.5"/><text x="${X(cum.length)}" y="${Yv(cv)-6}" font-size="12" text-anchor="end" style="fill:#ff4d4d">${Math.round(cv)}</text>`;
- return{svg:g+"</svg>",pt};}
+ if(pt)g+=hl(pt,"#f5c542")+lab(W-R,pt,"#f5c542",pt>=pi);
+ if(pi)g+=hl(pi,"#4da3ff")+lab(W-R,pi,"#4da3ff",pi>pt);
+ if(cs.length)g+=pl(cs,"#ff4d4d")+lab(X(cs.length),cv,"#ff4d4d",cv>cI);
+ if(ci.length)g+=pl(ci,"#5fd68a")+lab(X(ci.length),cI,"#5fd68a",cI>=cv);
+ return{svg:g+"</svg>",pt,pi};}
 
 function drawMonth(){
  const n=dim(mo),tot=zero();let ws=0,rows="";
  for(let i=1;i<=n;i++){const date=mo+"-"+pad(i),w=dow(date),s=dayTot(date);
   C.forEach(c=>tot[c]+=s[c]);ws+=spent(s);
   const wc=(w==6||i==n)?fv(ws):"";if(w==6||i==n)ws=0;
-  rows+=`<tr onclick="pick('${date}')" class="${date==today()?"td":""}"><td>${DN[w]} ${pad(i)}</td>${C.map(c=>`<td>${fv(s[c])}</td>`).join("")}<td>${wc}</td></tr>`;}
+  rows+=`<tr onclick="pick('${date}')" class="${date==today()?"td":""}"><td>${DN[w]} ${pad(i)}</td>${tds(s)}<td>${wc}</td></tr>`;}
  const sp=spent(tot),st=startOf(mo),b=st+tot.Income-sp;
  const shr=C.slice(1).map(c=>`<td>${sp?Math.round(tot[c]/sp*100)+"%":""}</td>`).join("");
- const mg=monthGraph(n),dv=sp-mg.pt;
+ const mg=monthGraph(n),dv=sp-mg.pt,di=tot.Income-mg.pi;
  $("p2").innerHTML=`<div class="nav"><button onclick="mo=shM(mo,-1);draw()">◀</button><b>${MN[+mo.slice(5)-1]} ${mo.slice(0,4)}</b><button onclick="mo=shM(mo,1);draw()">▶</button></div>
- <div class="tiles">${tile("Расход",f2(sp))}${tile("Баланс",f2(b),sg(b))}${tile("Доход",f2(tot.Income),"pos")}${tile("Разница к старту",f2(b-st),sg(b-st))}
- ${tile("Против прошлого месяца",mg.pt?(dv>0?"+":"")+f2(dv):"—",mg.pt?sg(-dv):"")}${tile("В среднем за неделю",f2(sp/(n/7)))}</div>
- <h4>Расход нарастающим итогом</h4>
- <div class="gr">${mg.svg}<div class="leg"><span><i style="background:#ff4d4d"></i>этот месяц</span><span><i style="background:#f5c542"></i>итог прошлого месяца</span></div></div>
+ <div class="tiles">${tile("Расход",f2(sp))}${tile("Баланс",f2(b),sg(b))}${tile("Доход",f2(tot.Income),"pos","inc")}${tile("Разница к старту",f2(b-st),sg(b-st))}
+ ${tile("Расход против прошлого месяца",mg.pt?(dv>0?"+":"")+f2(dv):"—",mg.pt?sg(-dv):"")}${tile("Доход против прошлого месяца",mg.pi?(di>0?"+":"")+f2(di):"—",mg.pi?sg(di):"","inc")}${tile("В среднем за неделю",f2(sp/(n/7)))}</div>
+ <h4>Нарастающим итогом: расход и доход</h4>
+ <div class="gr">${mg.svg}<div class="leg"><span><i style="background:#ff4d4d"></i>расход, этот месяц</span><span><i style="background:#f5c542"></i>расход, итог прошлого</span><span><i style="background:#5fd68a"></i>доход, этот месяц</span><span><i style="background:#4da3ff"></i>доход, итог прошлого</span></div></div>
  <p>Старт месяца (очисти поле, чтобы взять баланс прошлого месяца):</p>
  <input type="number" step="0.01" value="${st.toFixed(2)}" onchange="setStart(this.value)">
- <table><tr><th>День</th>${SH.map(c=>`<th>${c}</th>`).join("")}<th>Нед.</th></tr>${rows}
- <tr class="sum"><td>Итого</td>${C.map(c=>`<td>${fv(tot[c])}</td>`).join("")}<td></td></tr>
+ <table><tr><th>День</th>${ths}<th>Нед.</th></tr>${rows}
+ <tr class="sum"><td>Итого</td>${tds(tot)}<td></td></tr>
  <tr><td>Доля</td><td></td>${shr}<td></td></tr></table>`;}
 
 function openYear(){$("ov").hidden=false;drawYear();}
@@ -194,18 +217,18 @@ function drawYear(){
  const line=`<svg viewBox="0 0 ${W} ${h2+25}" width="100%"><line x1="0" x2="${W}" y1="${yy(0)}" y2="${yy(0)}" stroke="#444"/><polyline points="${pts}" fill="none" stroke="#ececec" stroke-width="2"/>`
   +T.map((t,i)=>`<text x="${i*42+23}" y="${h2+20}" font-size="10" text-anchor="middle">${MN[i]}</text>`).join("")+"</svg>";
  const cm=today().slice(0,7),F=D.filter(t=>t.m!=cm);
- const sumC=c=>D.reduce((p,t)=>p+t.s[c],0);
- const avg=c=>F.length?F.reduce((p,t)=>p+t.s[c],0)/F.length:0;
+ const ys=zero(),va=zero();
+ D.forEach(t=>C.forEach(c=>ys[c]+=t.s[c]));
+ F.forEach(t=>C.forEach(c=>va[c]+=t.s[c]/F.length));
  const tsp=F.reduce((p,t)=>p+spent(t.s),0)||1;
  const share=C.slice(1).map(c=>c+" "+Math.round(F.reduce((p,t)=>p+t.s[c],0)/tsp*100)+"%").join(" · ");
- const ysp=D.reduce((p,t)=>p+spent(t.s),0);
- const rows=D.map(t=>`<tr><td>${MN[+t.m.slice(5)-1]}</td>${C.map(c=>`<td>${Math.round(t.s[c])||""}</td>`).join("")}<td><b>${Math.round(t.b)}</b></td></tr>`).join("");
- h+=`<div class="tiles">${tile("Расход за год",f2(ysp))}${tile("Доход за год",f2(sumC("Income")),"pos")}</div>`
+ const rows=D.map(t=>`<tr><td>${MN[+t.m.slice(5)-1]}</td>${tds(t.s,true)}<td><b>${Math.round(t.b)}</b></td></tr>`).join("");
+ h+=`<div class="tiles">${tile("Расход за год",f2(spent(ys)))}${tile("Доход за год",f2(ys.Income),"pos","inc")}</div>`
   +`<div class="leg">`+C.slice(1).map((c,j)=>`<span><i style="background:${COL[j]}"></i>${c}</span>`).join("")+`</div>`
   +`<h4>Расходы по месяцам</h4><div class="gr">${bars}</div><h4>Баланс</h4><div class="gr">${line}</div>`
-  +`<table><tr><th>Мес</th>${SH.map(c=>`<th>${c}</th>`).join("")}<th>Bal</th></tr>${rows}`
-  +`<tr class="sum"><td>Год</td>${C.map(c=>`<td>${Math.round(sumC(c))}</td>`).join("")}<td></td></tr>`
-  +`<tr><td>Сред.</td>${C.map(c=>`<td>${Math.round(avg(c))}</td>`).join("")}<td></td></tr></table>`
+  +`<table><tr><th>Мес</th>${ths}<th>Bal</th></tr>${rows}`
+  +`<tr class="sum"><td>Год</td>${tds(ys,true)}<td></td></tr>`
+  +`<tr><td>Сред.</td>${tds(va,true)}<td></td></tr></table>`
   +`<p><small>Сред. считается без текущего месяца. Доли расходов: ${share}</small></p>`;
  $("ovc").innerHTML=h;}
 
@@ -214,7 +237,8 @@ function go(i){$("sw").scrollTo({left:i*$("sw").clientWidth,behavior:"smooth"});
 function exp(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(d)]));a.download="budget.json";a.click();}
 async function restore(i){try{const j=JSON.parse(await i.files[0].text());if(j.tx&&j.starts){d=j;save();draw();}}catch(e){alert("Неверный файл");}}
 
-$("cats").innerHTML=C.map(c=>`<button id="b${c}" onclick="cat='${c}';drawAdd()">${c}</button>`).join("");
+$("cats").innerHTML=C.slice(1).map(c=>`<button id="b${c}" onclick="cat='${c}';drawAdd()">${c}</button>`).join("")
+ +`<button id="bIncome" class="incb" onclick="cat='Income';drawAdd()">+ Доход</button>`;
 $("dt").value=day0;$("dt").onchange=drawAdd;
 $("sw").addEventListener("scroll",()=>{const i=Math.round($("sw").scrollLeft/$("sw").clientWidth);[0,1,2].forEach(k=>$("t"+k).className=k==i?"on":"");});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&day0!=today()){day0=today();$("dt").value=day0;wk=monday(day0);mo=day0.slice(0,7);draw();}});
