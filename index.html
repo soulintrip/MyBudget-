@@ -24,6 +24,8 @@ input,button{font-size:18px;padding:10px;margin:3px 0;width:100%;background:var(
 .cats .incb{grid-column:1/-1;border-color:#2f7a4a;color:var(--g)}
 .cats .incb.on{background:var(--g);color:#0a0a0a;border-color:var(--g)}
 .addinc{background:var(--g);color:#0a0a0a;border-color:var(--g)}
+#addb{background:#7a2e32;border-color:#a8474d;color:#fff;font-weight:bold}
+#addb.addinc{background:var(--g);border-color:var(--g);color:#0a0a0a}
 .nav{display:grid;grid-template-columns:60px 1fr 60px;align-items:center;text-align:center;gap:6px;font-size:18px}
 .nav button{width:auto}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
@@ -52,6 +54,13 @@ li.li-inc{border-left:4px solid var(--g)}
 svg text{fill:#bbb}
 h4{margin:14px 0 4px;color:var(--mut);font-weight:normal}
 .gr{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px}
+#dv{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10;display:flex;align-items:flex-end;justify-content:center}
+#dv[hidden]{display:none}
+.sheet{background:var(--bg);border:1px solid var(--line);border-radius:14px 14px 0 0;width:100%;max-width:760px;max-height:80vh;overflow:auto;padding:12px}
+.dl{padding:10px 8px;border:1px solid var(--line);border-radius:8px;margin:6px 0;background:var(--card)}
+.dl.inc{border-left:4px solid var(--g)}
+.dl .r{display:flex;justify-content:space-between}
+.dl p{margin:6px 0 0;color:var(--mut);white-space:pre-wrap;word-break:break-word}
 </style></head><body>
 
 <div id="top">
@@ -77,6 +86,7 @@ h4{margin:14px 0 4px;color:var(--mut);font-weight:normal}
  <section><div class="in" id="p2"></div></section>
 </div>
 
+<div id="dv" hidden onclick="if(event.target==this)closeDay()"><div class="sheet" id="dvc"></div></div>
 <div id="ov" hidden><div class="in" id="ovc"></div></div>
 
 <script>
@@ -99,7 +109,7 @@ const sh=s=>s.slice(8)+"."+s.slice(5,7);
 const shM=(m,n)=>{const[y,o]=m.split("-").map(Number);return new Date(Date.UTC(y,o-1+n,1)).toISOString().slice(0,7);};
 const dim=m=>{const[y,o]=m.split("-").map(Number);return new Date(Date.UTC(y,o,0)).getUTCDate();};
 
-let d=JSON.parse(localStorage.bud||'{"tx":[],"starts":{}}'),cat="Food",I={};
+let d=JSON.parse(localStorage.bud||'{"tx":[],"starts":{}}'),cat="Food",I={},dayv="";
 let day0=today(),wk=monday(day0),mo=day0.slice(0,7),Y=+day0.slice(0,4);
 const save=()=>localStorage.bud=JSON.stringify(d);
 
@@ -125,6 +135,15 @@ function add(){const a=parseFloat($("amt").value);if(!a||!$("dt").value)return;
 function del(id){if(confirm("Удалить?")){d.tx=d.tx.filter(x=>String(x.id)!=id);save();draw();}}
 function pick(date){$("dt").value=date;drawAdd();go(0);}
 
+function openDay(date){dayv=date;drawDay();$("dv").hidden=false;}
+function closeDay(){$("dv").hidden=true;dayv="";}
+function drawDay(){
+ const L=I[dayv]||[],s=dayTot(dayv),w=dow(dayv);
+ $("dvc").innerHTML=`<div class="nav"><span></span><b>${DN[w]} ${sh(dayv)}</b><button onclick="closeDay()">✕</button></div>
+ <div class="tiles">${tile("Расход",f2(spent(s)))}${tile("Доход",f2(s.Income),"pos","inc")}</div>`
+ +(L.length?L.map(x=>{const i=x.c=="Income";return `<div class="dl ${i?"inc":""}" onclick="del('${x.id}')"><div class="r"><span>${x.c}</span><b class="${i?"pos":""}">${i?"+":""}${x.a}</b></div>${x.s?`<p>${esc(x.s)}</p>`:""}</div>`;}).join(""):"<p>Записей нет.</p>")
+ +`<p><small>Тап по записи удаляет её.</small></p><button onclick="pick('${dayv}');closeDay()">Добавить запись на этот день</button>`;}
+
 function drawAdd(){
  C.forEach(c=>$("b"+c).className=(c=="Income"?"incb ":"")+(c==cat?"on":""));
  const inc=cat=="Income";
@@ -142,7 +161,7 @@ function drawWeek(){
  let rows="";
  days.forEach((x,i)=>{const s=dayTot(x);C.forEach(c=>tot[c]+=s[c]);
   const ds=(I[x]||[]).map(t=>t.s).filter(Boolean).join(", ");
-  rows+=`<tr onclick="pick('${x}')" class="${x==today()?"td":""}"><td>${DN[i]} ${x.slice(8)}</td>${tds(s)}<td class="ds">${esc(ds)}</td></tr>`;});
+  rows+=`<tr onclick="openDay('${x}')" class="${x==today()?"td":""}"><td>${DN[i]} ${x.slice(8)}</td>${tds(s)}<td class="ds">${esc(ds)}</td></tr>`;});
  const sp=spent(tot),ws=C.slice(1).map(c=>sp?tot[c]/sp:0),av=avgShare();
  let g=`<svg viewBox="0 0 560 160" width="100%">`;
  C.slice(1).forEach((c,j)=>{const y=j*30+6,w=ws[j]*400;
@@ -232,7 +251,7 @@ function drawYear(){
   +`<p><small>Сред. считается без текущего месяца. Доли расходов: ${share}</small></p>`;
  $("ovc").innerHTML=h;}
 
-function draw(){idx();drawAdd();drawWeek();drawMonth();if(!$("ov").hidden)drawYear();}
+function draw(){idx();drawAdd();drawWeek();drawMonth();if(!$("ov").hidden)drawYear();if(!$("dv").hidden)drawDay();}
 function go(i){$("sw").scrollTo({left:i*$("sw").clientWidth,behavior:"smooth"});}
 function exp(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(d)]));a.download="budget.json";a.click();}
 async function restore(i){try{const j=JSON.parse(await i.files[0].text());if(j.tx&&j.starts){d=j;save();draw();}}catch(e){alert("Неверный файл");}}
