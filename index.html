@@ -129,6 +129,22 @@ function avgShare(){
  for(const k in W){if(k==cw)continue;n++;C.slice(1).forEach(c=>t[c]+=W[k][c]);}
  const sp=spent(t);return n&&sp?C.slice(1).map(c=>t[c]/sp):null;}
 
+function avgShareM(){
+ const cm=today().slice(0,7),t=zero();let n=0;
+ new Set(d.tx.map(x=>x.date.slice(0,7))).forEach(m=>{
+  if(m==cm)return;const s=mTot(m);
+  if(spent(s)>0){n++;C.slice(1).forEach(c=>t[c]+=s[c]);}});
+ const sp=spent(t);return n&&sp?C.slice(1).map(c=>t[c]/sp):null;}
+
+function shareGraph(tot,av){
+ const sp=spent(tot),ws=C.slice(1).map(c=>sp?tot[c]/sp:0);
+ let g=`<svg viewBox="0 0 560 160" width="100%">`;
+ C.slice(1).forEach((c,j)=>{const y=j*30+6,w=ws[j]*400;
+  g+=`<text x="0" y="${y+15}" font-size="13">${SH[j+1]}</text><rect x="50" y="${y}" width="400" height="20" fill="#26262a"/><rect x="50" y="${y}" width="${w}" height="20" fill="${COL[j]}"/>`;
+  if(av)g+=`<line x1="${50+av[j]*400}" x2="${50+av[j]*400}" y1="${y-3}" y2="${y+23}" stroke="#fff" stroke-width="2.5"/>`;
+  g+=`<text x="458" y="${y+15}" font-size="13">${Math.round(ws[j]*100)}%${av?" / "+Math.round(av[j]*100)+"%":""}</text>`;});
+ return g+"</svg>";}
+
 function add(){const a=parseFloat($("amt").value);if(!a||!$("dt").value)return;
  d.tx.push({id:Date.now()+Math.random(),date:$("dt").value,c:cat,a,s:$("dsc").value.trim()});
  $("amt").value=$("dsc").value="";save();draw();$("amt").focus();}
@@ -162,19 +178,13 @@ function drawWeek(){
  days.forEach((x,i)=>{const s=dayTot(x);C.forEach(c=>tot[c]+=s[c]);
   const ds=(I[x]||[]).map(t=>t.s).filter(Boolean).join(", ");
   rows+=`<tr onclick="openDay('${x}')" class="${x==today()?"td":""}"><td>${DN[i]} ${x.slice(8)}</td>${tds(s)}<td class="ds">${esc(ds)}</td></tr>`;});
- const sp=spent(tot),ws=C.slice(1).map(c=>sp?tot[c]/sp:0),av=avgShare();
- let g=`<svg viewBox="0 0 560 160" width="100%">`;
- C.slice(1).forEach((c,j)=>{const y=j*30+6,w=ws[j]*400;
-  g+=`<text x="0" y="${y+15}" font-size="13">${SH[j+1]}</text><rect x="50" y="${y}" width="400" height="20" fill="#26262a"/><rect x="50" y="${y}" width="${w}" height="20" fill="${COL[j]}"/>`;
-  if(av)g+=`<line x1="${50+av[j]*400}" x2="${50+av[j]*400}" y1="${y-3}" y2="${y+23}" stroke="#fff" stroke-width="2.5"/>`;
-  g+=`<text x="458" y="${y+15}" font-size="13">${Math.round(ws[j]*100)}%${av?" / "+Math.round(av[j]*100)+"%":""}</text>`;});
- g+="</svg>";
+ const sp=spent(tot),av=avgShare();
  $("p1").innerHTML=`<div class="nav"><button onclick="wk=addD(wk,-7);draw()">◀</button><b>${sh(days[0])} – ${sh(days[6])}</b><button onclick="wk=addD(wk,7);draw()">▶</button></div>
  <div class="tiles">${tile("Расход за неделю",f2(sp))}${tile("Доход за неделю",f2(tot.Income),"pos","inc")}</div>
  <table><tr><th>День</th>${ths}<th style="width:26%">Описание</th></tr>${rows}
  <tr class="sum"><td>Итого</td>${tds(tot)}<td></td></tr></table>
  <h4>Доли расходов: неделя (полоса) / среднее по прошлым неделям (белая метка)</h4>
- <div class="gr">${g}</div>
+ <div class="gr">${shareGraph(tot,av)}</div>
  ${av?"":"<p><small>Среднее появится после первой завершённой недели.</small></p>"}`;}
 
 function monthGraph(n){
@@ -205,12 +215,15 @@ function drawMonth(){
   rows+=`<tr onclick="pick('${date}')" class="${date==today()?"td":""}"><td>${DN[w]} ${pad(i)}</td>${tds(s)}<td>${wc}</td></tr>`;}
  const sp=spent(tot),st=startOf(mo),b=st+tot.Income-sp;
  const shr=C.slice(1).map(c=>`<td>${sp?Math.round(tot[c]/sp*100)+"%":""}</td>`).join("");
- const mg=monthGraph(n),dv=sp-mg.pt,di=tot.Income-mg.pi;
+ const mg=monthGraph(n),dv=sp-mg.pt,di=tot.Income-mg.pi,av=avgShareM();
  $("p2").innerHTML=`<div class="nav"><button onclick="mo=shM(mo,-1);draw()">◀</button><b>${MN[+mo.slice(5)-1]} ${mo.slice(0,4)}</b><button onclick="mo=shM(mo,1);draw()">▶</button></div>
  <div class="tiles">${tile("Расход",f2(sp))}${tile("Баланс",f2(b),sg(b))}${tile("Доход",f2(tot.Income),"pos","inc")}${tile("Разница к старту",f2(b-st),sg(b-st))}
  ${tile("Расход против прошлого месяца",mg.pt?(dv>0?"+":"")+f2(dv):"—",mg.pt?sg(-dv):"")}${tile("Доход против прошлого месяца",mg.pi?(di>0?"+":"")+f2(di):"—",mg.pi?sg(di):"","inc")}${tile("В среднем за неделю",f2(sp/(n/7)))}</div>
  <h4>Нарастающим итогом: расход и доход</h4>
  <div class="gr">${mg.svg}<div class="leg"><span><i style="background:#ff4d4d"></i>расход, этот месяц</span><span><i style="background:#f5c542"></i>расход, итог прошлого</span><span><i style="background:#5fd68a"></i>доход, этот месяц</span><span><i style="background:#4da3ff"></i>доход, итог прошлого</span></div></div>
+ <h4>Доли расходов: месяц (полоса) / среднее по прошлым месяцам (белая метка)</h4>
+ <div class="gr">${shareGraph(tot,av)}</div>
+ ${av?"":"<p><small>Среднее появится после первого завершённого месяца.</small></p>"}
  <p>Старт месяца (очисти поле, чтобы взять баланс прошлого месяца):</p>
  <input type="number" step="0.01" value="${st.toFixed(2)}" onchange="setStart(this.value)">
  <table><tr><th>День</th>${ths}<th>Нед.</th></tr>${rows}
